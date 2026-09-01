@@ -86,6 +86,19 @@ Se puntúa **toda** transacción, incluidas las de tarjetas con menos de `K` de 
 
 La mezcla es la defensa explícita contra "usted construyó los datos para que B ganara": f3 está diseñado para que empaten.
 
+### 4.1.1 Por qué f1 depende del orden de verdad (y no por accidente)
+
+Un f1 ingenuo **no** sería dependiente del orden. En el momento del golpe, A ve monto alto + `n_tx_1h` alto + `n_merchants_24h` alto + `amt_mean_24h` bajo: una firma agregada suficientemente distintiva para ganar sin leer secuencia alguna. La permutación no mostraría nada y el experimento probaría lo contrario de lo que se pretende medir.
+
+Dos piezas lo corrigen:
+
+1. **Los sondeos escalan de forma monótona creciente** (Q5 → Q12 → Q25 → Q38): el atacante tantea el límite de la tarjeta. Es comportamiento documentado de *card testing*, y es la clave del diseño: la media, el máximo, el conteo y la cardinalidad de un conjunto son **invariantes a permutación**, pero "estrictamente creciente" no lo es. Barajar la ventana destruye la señal exactamente como la prueba de §10.2 requiere.
+2. **Ráfagas legítimas como confusor.** Se inyectan episodios legítimos de 3–6 compras pequeñas en comercios distintos dentro de <2 h, con montos en orden **aleatorio**, y en una fracción de los casos seguidos de una compra grande legítima (el artículo caro al final de la jornada de compras). Su firma agregada es indistinguible de la de f1.
+
+Con las dos, las features de A tienen la misma distribución en f1 y en las ráfagas legítimas, y lo único que las separa es el orden. Se inyectan ~3 ráfagas legítimas por cada episodio f1.
+
+Nótese la dirección de cada corrección: sin (1) el generador estaría amañado a favor de A; sin (2), a favor de B. Ambas juntas dejan a f1 dependiente del orden y de nada más, que es la condición para que la comparación signifique algo.
+
 ### 4.2 Etiquetado de f1
 
 En f1 se etiquetan como fraude **todas** las transacciones del atacante, sondeos incluidos, no solo el golpe. Es lo que un banco llama fraude, y es la opción honesta.
