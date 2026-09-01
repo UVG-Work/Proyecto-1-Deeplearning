@@ -425,7 +425,15 @@ def _timestamps(rng: np.random.Generator, m: int, tasa_dia: float) -> np.ndarray
     minuto = rng.integers(0, 60, size=m)
     segundo = rng.integers(0, 60, size=m)
     ts = dia + pd.to_timedelta(h, "h") + pd.to_timedelta(minuto, "m") + pd.to_timedelta(segundo, "s")
-    return np.sort(ts.values)
+    ts = np.sort(ts.values)
+    # Remuestrear la hora puede producir colisiones. Se desempatan con
+    # microsegundos crecientes: sin esto, drop_duplicates bajaria el conteo
+    # de la tarjeta por debajo de TX_MIN y rompería el contrato del generador.
+    iguales = np.concatenate([[False], ts[1:] == ts[:-1]])
+    if iguales.any():
+        ts = ts + np.cumsum(iguales) * np.timedelta64(1, "us")
+        ts = np.sort(ts)
+    return ts
 
 
 def flujo_legitimo(rng: np.random.Generator, perf: pd.DataFrame) -> pd.DataFrame:
@@ -736,9 +744,17 @@ def _inyectar_f2(rng, base, n_episodios):
 
 def _inyectar_f3(rng, base, perf, n_episodios):
     """Una sola transaccion extrema y AISLADA: sin actividad de la tarjeta en
-    las 6h previas, para que sea estructuralmente distinta del golpe de f1."""
+    las 6h previas, para que sea estructuralmente distinta del golpe de f1.
+
+    `base` debe incluir ya las rafagas legitimas: una compra grande de rafaga
+    puede superar el p99.9 de una tarjeta de gasto bajo, y f3 tiene que quedar
+    por encima de TODO lo legitimo de esa tarjeta.
+    """
     filas = []
     por_tarjeta = {c: g["ts"].to_numpy() for c, g in base.groupby("card_id")}
+    # un solo groupby en vez de un escaneo por episodio: con 400k filas y
+    # ~3,600 candidatos, escanear seria ~1.4e9 operaciones
+    p999_por_tarjeta = base.groupby("card_id")["amount"].quantile(0.999).to_dict()
     cards, t0s = _anclas(rng, base, n_episodios * 3)
     puestos = 0
     for card, t0 in zip(cards, t0s):
@@ -748,7 +764,7 @@ def _inyectar_f3(rng, base, perf, n_episodios):
         ventana = (ts > np.datetime64(t0 - pd.Timedelta(hours=6))) & (ts <= np.datetime64(t0))
         if ventana.any():
             continue
-        p999 = float(np.quantile(base.loc[base["card_id"] == card, "amount"], 0.999))
+        p999 = float(p999_por_tarjeta[card])
         filas.append(_fila(
             card, t0, p999 * rng.uniform(1.5, 4.0), rng.integers(0, cfg.N_COMERCIOS),
             rng.choice(cfg.MCCS), rng.choice(("online", "POS")),
@@ -772,9 +788,15 @@ def generar(seed: int, n_tarjetas: int | None = None) -> pd.DataFrame:
 
     filas = []
     filas += _inyectar_f1(rng, base, perf, n_f1)
-    filas += _inyectar_rafagas_legitimas(rng, base, int(n_f1 * cfg.RAFAGAS_LEGITIMAS_POR_F1))
+    rafagas = _inyectar_rafagas_legitimas(rng, base, int(n_f1 * cfg.RAFAGAS_LEGITIMAS_POR_F1))
+    filas += rafagas
     filas += _inyectar_f2(rng, base, n_f2)
-    filas += _inyectar_f3(rng, base, perf, n_f3)
+    # f3 va al final y ve las rafagas: su monto debe superar TODO lo legitimo
+    # de la tarjeta, rafagas incluidas.
+    base_con_rafagas = pd.concat(
+        [base, pd.DataFrame(rafagas, columns=COLUMNAS)], ignore_index=True
+    ).sort_values(["card_id", "ts"], kind="mergesort")
+    filas += _inyectar_f3(rng, base_con_rafagas, perf, n_f3)
 
     df = pd.concat([base, pd.DataFrame(filas, columns=COLUMNAS)], ignore_index=True)
     df = df.drop_duplicates(subset=["card_id", "ts"], keep="first")
@@ -997,7 +1019,12 @@ def test_primera_transaccion_sin_contexto():
     df = _mini([10, 20], [0, 1])
     X = fa.construir(df)
     assert X.loc[0, "n_tx_24h"] == 0
-    assert X.loc[0, "amt_mean_24h"] == 0.0 or np.isnan(X.loc[0, "amt_mean_24h"]) is False
+    assert X.loc[0, "n_tx_1h"] == 0
+    # sin contexto los agregados quedan en 0, nunca en NaN: el modelo no
+    # puede recibir NaN y un 0 aqui significa "no habia historia"
+    assert X.loc[0, "amt_mean_24h"] == 0.0
+    assert X.loc[0, "amt_max_24h"] == 0.0
+    assert not X.isna().any().any()
 
 
 def test_envenenamiento_del_futuro_no_altera_el_pasado():
@@ -1545,11 +1572,17 @@ def test_categoria_nueva_en_test_mapea_a_unk():
 
 
 def test_scaler_ajustado_solo_en_train(datos):
+    """Penalizacion de -15 pts. El test tiene que morder: ajustar con todo el
+    dataset debe dar un resultado DISTINTO de ajustar solo con train."""
     df, es_train, vocab, E_num, _, scaler = datos
-    # la media de las filas de train debe ser ~0 tras escalar; la global no
+    # la media de las filas de train debe quedar en ~0 tras escalar
     assert abs(E_num[es_train].mean()) < 0.05
-    E_crudo, _, _ = fe.construir(df, vocab, es_train, scaler=None)
-    assert np.allclose(E_num, E_crudo, atol=1e-5)
+    # ajustar con todo (lo prohibido) produce otros numeros
+    todo = np.ones(len(df), dtype=bool)
+    E_fuga, _, scaler_fuga = fe.construir(df, vocab, todo)
+    assert not np.allclose(scaler.mean_, scaler_fuga.mean_), \
+        "el scaler da igual con train que con todo: no se esta ajustando solo en train"
+    assert not np.allclose(E_num, E_fuga, atol=1e-4)
 
 
 def test_scaler_reutilizado_no_reajusta(datos):
@@ -2081,18 +2114,23 @@ def test_lotes_cubren_todas_las_muestras_sin_barajar(datos):
     assert total == n
 
 
+def _nombres_de_entrada(m):
+    return {t.name.split(":")[0] for t in m.inputs}
+
+
 def test_modelo_tiene_las_entradas_esperadas(datos):
     d = datos
     m = mb.construir_modelo(cfg.K, d["E_num"].shape[1], fe.cardinalidades(d["vocab"]))
-    assert set(m.input_shape) == {"num", "mcc", "channel", "merchant", "mask"}
+    assert _nombres_de_entrada(m) == {"num", "mcc", "channel", "merchant", "mask"}
     assert m.output_shape == (None, 1)
 
 
 def test_hibrido_agrega_la_entrada_de_agregados(datos):
     d = datos
     m = mb.construir_modelo(cfg.K, d["E_num"].shape[1], fe.cardinalidades(d["vocab"]), d_agg=11)
-    assert "agg" in m.input_shape
-    assert m.input_shape["agg"] == (None, 11)
+    assert "agg" in _nombres_de_entrada(m)
+    agg = [t for t in m.inputs if t.name.split(":")[0] == "agg"][0]
+    assert tuple(agg.shape) == (None, 11)
 
 
 def test_entrena_y_supera_el_azar(datos):
