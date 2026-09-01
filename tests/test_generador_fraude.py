@@ -166,3 +166,28 @@ def test_f1_y_rafagas_tienen_la_misma_firma_agregada():
     # monto del evento grande: misma escala
     razon = grandes_f1["amount"].median() / grandes_raf["amount"].median()
     assert 0.5 < razon < 2.0, razon
+
+
+def test_el_fraude_se_reparte_a_lo_largo_del_horizonte(df):
+    """El primer y el ultimo tramo del horizonte no pueden quedar sin fraude.
+
+    La particion corta por percentil de tiempo global, asi que una zona muerta
+    al final deja el conjunto de test con una prevalencia mucho menor que la de
+    train. Como la AUC-PR depende de la prevalencia y el umbral se congela en
+    validacion, eso distorsionaria las cifras que van al informe.
+    """
+    t0 = df["ts"].min()
+    dias = (df["ts"] - t0).dt.total_seconds() / 86400.0
+    horizonte = dias.max()
+    tasa_global = df["is_fraud"].mean()
+
+    tasas = []
+    for i in range(10):
+        lo, hi = horizonte * i / 10.0, horizonte * (i + 1) / 10.0
+        g = df[(dias >= lo) & (dias < hi)]
+        tasas.append(g["is_fraud"].mean())
+
+    assert min(tasas) > 0.0, f"hay deciles sin fraude: {tasas}"
+    # ningun decil puede alejarse mas de 2x de la tasa global
+    assert min(tasas) > tasa_global / 2.5, (min(tasas), tasa_global)
+    assert max(tasas) < tasa_global * 2.5, (max(tasas), tasa_global)

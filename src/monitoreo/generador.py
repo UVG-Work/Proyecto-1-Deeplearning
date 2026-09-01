@@ -160,7 +160,7 @@ def _anclas(rng, base, n_episodios, reemplazo=False):
     # alcancen las tarjetas
     reemplazo = reemplazo or n_episodios > disponibles.size
     cards = rng.choice(disponibles, size=n_episodios, replace=reemplazo)
-    u = rng.uniform(0.1, 0.9, size=n_episodios)
+    u = rng.uniform(0.01, 0.99, size=n_episodios)
     t0 = rangos.loc[cards, "min"].to_numpy() + (
         (rangos.loc[cards, "max"].to_numpy() - rangos.loc[cards, "min"].to_numpy()) * u
     )
