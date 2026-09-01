@@ -12,12 +12,23 @@ import pandas as pd
 from . import config as cfg
 
 
+def _verificar_orden(df: pd.DataFrame) -> None:
+    """cumcount depende del orden por (card_id, ts). Sin esta guarda, un frame
+    desordenado produce indices silenciosamente incorrectos."""
+    orden = df[["card_id", "ts"]]
+    assert orden.equals(orden.sort_values(["card_id", "ts"], kind="mergesort")), (
+        "df debe venir ordenado por (card_id, ts); usar generador.generar o "
+        "df.sort_values(['card_id','ts']).reset_index(drop=True)"
+    )
+
+
 def construir(df: pd.DataFrame, K: int = cfg.K) -> tuple[np.ndarray, np.ndarray]:
     """Devuelve (win_idx, mask).
 
     `df` debe venir ordenado por (card_id, ts). Los indices son POSICIONALES
     respecto de `df`, de 0 a len(df)-1.
     """
+    _verificar_orden(df)
     n = len(df)
     pos_global = np.arange(n, dtype=np.int32)
     pos_en_tarjeta = df.reset_index(drop=True).groupby("card_id").cumcount().to_numpy()

@@ -24,6 +24,18 @@ NOMBRES_NUM = (
 )
 
 
+def _verificar_orden(df: pd.DataFrame) -> None:
+    """Delta_t, same_merchant_as_prev y amount_ratio_to_prev se calculan con
+    groupby+shift, asi que dependen de que el frame venga ordenado por
+    (card_id, ts). Sin esta guarda, un frame desordenado produce features
+    silenciosamente incorrectas en vez de fallar."""
+    orden = df[["card_id", "ts"]]
+    assert orden.equals(orden.sort_values(["card_id", "ts"], kind="mergesort")), (
+        "df debe venir ordenado por (card_id, ts); usar generador.generar o "
+        "df.sort_values(['card_id','ts']).reset_index(drop=True)"
+    )
+
+
 def construir_vocabularios(df: pd.DataFrame, es_train: np.ndarray) -> dict[str, dict]:
     """Indices >= 2. El 0 es PAD y el 1 es UNK; deben ser distintos."""
     tr = df[es_train]
@@ -46,6 +58,7 @@ def construir(
     usar_delta_t: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, StandardScaler]:
     """Devuelve (E_num, E_cat, scaler). El scaler se ajusta SOLO con train."""
+    _verificar_orden(df)
     g = df.groupby("card_id", sort=False)
     delta = g["ts"].diff().dt.total_seconds()
     es_primera = delta.isna().to_numpy().astype(np.float32)

@@ -103,3 +103,14 @@ def test_fraud_type_fuera_de_las_features(datos):
     _, _, _, E_num, _, _ = datos
     for col in cfg.COLUMNAS_ANALISIS:
         assert col not in fe.NOMBRES_NUM
+
+
+def test_construir_rechaza_un_frame_desordenado():
+    """Un frame desordenado produciria Delta_t basura sin fallar. Mejor que
+    reviente."""
+    df = gen.generar(31, n_tarjetas=30)
+    es_train = np.ones(len(df), dtype=bool)
+    vocab = fe.construir_vocabularios(df, es_train)
+    revuelto = df.sample(frac=1.0, random_state=0)
+    with pytest.raises(AssertionError):
+        fe.construir(revuelto, vocab, es_train)

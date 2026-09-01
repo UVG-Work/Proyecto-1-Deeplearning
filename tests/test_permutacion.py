@@ -54,7 +54,7 @@ def test_full_si_mueve_el_evento_objetivo(datos):
 
 
 def test_realmente_baraja(datos):
-    """Riesgo de §11 del spec: verificar que el shuffle se aplique."""
+    """Riesgo de seccion 11 del spec: verificar que el shuffle se aplique."""
     _, win, mask = datos
     perm = ven.permutar(win, mask, "history", np.random.default_rng(4))
     largas = mask.sum(axis=1) >= 5

@@ -68,3 +68,11 @@ def test_mascara_cuenta_exactamente_la_historia_disponible(datos):
 def test_memoria_razonable(datos):
     _, win, mask = datos
     assert win.nbytes / len(win) == cfg.K * 4
+
+
+def test_construir_rechaza_un_frame_desordenado():
+    """cumcount depende del orden por (card_id, ts)."""
+    df = gen.generar(31, n_tarjetas=30)
+    revuelto = df.sample(frac=1.0, random_state=0)
+    with pytest.raises(AssertionError):
+        ven.construir(revuelto, cfg.K)
