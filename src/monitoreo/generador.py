@@ -46,12 +46,17 @@ def _n_tx_por_tarjeta(rng: np.random.Generator, n: int) -> np.ndarray:
 
 def perfiles(rng: np.random.Generator, n_tarjetas: int) -> pd.DataFrame:
     """Un perfil de gasto estable por tarjeta."""
+    n_tx = _n_tx_por_tarjeta(rng, n_tarjetas)
     return pd.DataFrame(
         {
             "card_id": np.arange(n_tarjetas, dtype=np.int32),
-            "n_tx": _n_tx_por_tarjeta(rng, n_tarjetas),
+            "n_tx": n_tx,
             "monto_base": rng.lognormal(np.log(120.0), 0.6, size=n_tarjetas),
-            "tasa_dia": rng.uniform(0.5, 4.0, size=n_tarjetas),
+            # derivada de n_tx: todas las tarjetas comparten la misma
+            # ventana calendario (HORIZONTE_DIAS), asi el timeline global no
+            # se adelgaza al final por tarjetas lentas que siguen activas
+            # cuando las rapidas ya terminaron
+            "tasa_dia": n_tx / cfg.HORIZONTE_DIAS,
             "comercios_pref": [
                 rng.choice(cfg.N_COMERCIOS, size=rng.integers(5, 16), replace=False)
                 for _ in range(n_tarjetas)
@@ -65,11 +70,14 @@ def perfiles(rng: np.random.Generator, n_tarjetas: int) -> pd.DataFrame:
     )
 
 
-def _timestamps(rng: np.random.Generator, m: int, tasa_dia: float) -> np.ndarray:
-    """Fechas de un proceso de llegadas, con la hora del dia remuestreada
-    de una distribucion diurna. Se reordena para preservar monotonia."""
-    horas = np.cumsum(rng.exponential(24.0 / tasa_dia, size=m))
-    ts = FECHA_INICIO + pd.to_timedelta(horas, unit="h")
+def _timestamps(rng: np.random.Generator, m: int) -> np.ndarray:
+    """Fechas de un proceso de Poisson homogeneo condicionado al conteo: m
+    ofertas uniformes en [0, HORIZONTE_DIAS) dias, con la hora del dia
+    remuestreada de una distribucion diurna. Todas las tarjetas comparten
+    la misma ventana calendario, asi el timeline global no se adelgaza al
+    final. Se reordena para preservar monotonia."""
+    dias = np.sort(rng.uniform(0.0, cfg.HORIZONTE_DIAS, size=m))
+    ts = FECHA_INICIO + pd.to_timedelta(dias, unit="D")
     dia = ts.normalize()
     h = rng.choice(24, size=m, p=_PESOS_HORA)
     minuto = rng.integers(0, 60, size=m)
@@ -91,7 +99,7 @@ def flujo_legitimo(rng: np.random.Generator, perf: pd.DataFrame) -> pd.DataFrame
     trozos = []
     for fila in perf.itertuples(index=False):
         m = int(fila.n_tx)
-        ts = _timestamps(rng, m, float(fila.tasa_dia))
+        ts = _timestamps(rng, m)
         pref = np.asarray(fila.comercios_pref)
         usa_pref = rng.random(m) < 0.8
         comercio = np.where(

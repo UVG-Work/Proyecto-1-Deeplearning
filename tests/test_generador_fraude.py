@@ -123,51 +123,46 @@ def test_fraud_type_nunca_se_usa_como_feature_por_error(df):
         assert col in df.columns
 
 
-def test_f1_y_rafagas_tienen_la_misma_firma_agregada(df):
-    """f1 y las rafagas legitimas deben ser indistinguibles en cada marginal,
-    y diferir solo en el ORDEN de los montos chicos (spec 4.1.1). Si el canal
-    o el monto del evento grande difieren de forma sistematica, el Modelo A
-    puede separar los dos mecanismos sin leer secuencia, y el confusor pierde
-    su proposito."""
-    f1_sondeos = df[df["fraud_subtype"] == "f1_sondeo"]
-    f1_golpes = df[df["fraud_subtype"] == "f1_golpe"]
-    assert len(f1_sondeos) > 0 and len(f1_golpes) > 0
+def test_f1_y_rafagas_tienen_la_misma_firma_agregada():
+    """f1 y su confusor deben ser indistinguibles en TODAS sus marginales:
+    lo unico que los separa es el escalamiento monotono de los montos chicos.
 
-    legit = df[df["is_fraud"] == 0]
-    chicos_rafaga = []
-    grandes_rafaga = []
-    for _, g in legit.groupby("card_id"):
-        g = g.sort_values("ts").reset_index(drop=True)
-        chicas = g[g["amount"] < 40].reset_index(drop=True)
-        if len(chicas) < 3:
-            continue
-        # se agrupan solo las chicas que forman una racha contigua (gap <2h
-        # entre consecutivas): una compra chica aislada del flujo normal no
-        # cuenta como rafaga, y no debe diluir la comparacion de canal
-        gaps = chicas["ts"].diff().dt.total_seconds()
-        cerca = (gaps < 7200) & (gaps > 0)
-        racha = (~cerca).cumsum()
-        tam = racha.value_counts()
-        validas = tam[tam >= 3].index
-        en_rafaga = chicas[racha.isin(validas)]
-        if en_rafaga.empty:
-            continue
-        chicos_rafaga.append(en_rafaga)
-        ultima = en_rafaga["ts"].max()
-        grande = g[
-            (g["ts"] > ultima) & (g["ts"] <= ultima + pd.Timedelta(hours=2))
-            & (g["amount"] >= 100)
-        ]
-        if len(grande):
-            grandes_rafaga.append(grande)
+    Se miden los inyectores directamente en vez de detectar rachas por
+    heuristica sobre el flujo ya mezclado: esa heuristica arrastra clusters
+    casuales del flujo ordinario, cuyo mix de canal es distinto, y sesga el
+    estimador.
+    """
+    rng = np.random.default_rng(cfg.SEED_DATOS)
+    perf = gen.perfiles(rng, 400)
+    base = gen.flujo_legitimo(rng, perf)
+    f1 = pd.DataFrame(gen._inyectar_f1(rng, base, perf, 300), columns=gen.COLUMNAS)
+    raf = pd.DataFrame(
+        gen._inyectar_rafagas_legitimas(rng, base, perf, 300), columns=gen.COLUMNAS
+    )
 
-    chicos_rafaga = pd.concat(chicos_rafaga)
-    grandes_rafaga = pd.concat(grandes_rafaga)
-    assert len(chicos_rafaga) > 0 and len(grandes_rafaga) > 0
+    chicos_f1 = f1[f1["fraud_subtype"] == "f1_sondeo"]
+    chicos_raf = raf[raf["amount"] <= 40.0]
+    grandes_f1 = f1[f1["fraud_subtype"] == "f1_golpe"]
+    grandes_raf = raf[raf["amount"] > 40.0]
 
-    share_f1 = (f1_sondeos["channel"] == "online").mean()
-    share_rafaga = (chicos_rafaga["channel"] == "online").mean()
-    assert abs(share_f1 - share_rafaga) < 0.1, (share_f1, share_rafaga)
+    assert len(chicos_f1) > 500 and len(chicos_raf) > 500
+    assert len(grandes_f1) > 100 and len(grandes_raf) > 50
 
-    razon = f1_golpes["amount"].median() / grandes_rafaga["amount"].median()
-    assert 0.5 <= razon <= 2.0, razon
+    def online(d):
+        return (d["channel"] == "online").mean()
+
+    # canal: misma distribucion en los eventos chicos y en los grandes
+    assert abs(online(chicos_f1) - online(chicos_raf)) < 0.06, (
+        online(chicos_f1), online(chicos_raf),
+    )
+    assert abs(online(grandes_f1) - online(grandes_raf)) < 0.15, (
+        online(grandes_f1), online(grandes_raf),
+    )
+
+    # pais: identico en ambos mecanismos
+    assert set(chicos_f1["country"]) == set(chicos_raf["country"]) == {"GT"}
+    assert set(grandes_f1["country"]) == set(grandes_raf["country"]) == {"GT"}
+
+    # monto del evento grande: misma escala
+    razon = grandes_f1["amount"].median() / grandes_raf["amount"].median()
+    assert 0.5 < razon < 2.0, razon
