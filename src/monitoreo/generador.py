@@ -166,10 +166,18 @@ def _episodio_pequeno(rng, monotono):
     if monotono:
         # el escalamiento tiene que sobrevivir al redondeo a centavos: un
         # empate destruye la unica propiedad de f1 que no es invariante a
-        # permutacion
+        # permutacion. El clamp a 40 va DESPUES del bump y se re-chequea la
+        # estricta monotonia para no reintroducir un empate en el techo.
         for i in range(1, n):
             if montos[i] <= montos[i - 1]:
                 montos[i] = round(montos[i - 1] + 0.01, 2)
+        montos = np.minimum(montos, 40.0)
+        # recorrido hacia atras: si el clamp reintrodujo un empate, se baja
+        # el elemento anterior, lo que puede propagar el ajuste mas atras
+        # todavia (caso de 2+ empates encadenados cerca del techo)
+        for i in range(n - 1, 0, -1):
+            if montos[i] <= montos[i - 1]:
+                montos[i - 1] = round(montos[i] - 0.01, 2)
     else:
         rng.shuffle(montos)
     comercios = rng.choice(cfg.N_COMERCIOS, size=n, replace=False)
@@ -185,7 +193,7 @@ def _inyectar_f1(rng, base, perf, n_episodios):
         for monto, com, mi in zip(montos, comercios, minutos):
             filas.append(_fila(
                 card, t0 + pd.Timedelta(minutes=float(mi)), monto, com,
-                rng.choice(cfg.MCCS), "online", "GT", "f1", "f1_sondeo",
+                rng.choice(cfg.MCCS), rng.choice(("POS", "online")), "GT", "f1", "f1_sondeo",
             ))
         if rng.random() < cfg.PROB_F1_BRECHA_LARGA:
             brecha = pd.Timedelta(hours=float(rng.uniform(26.0, 72.0)))  # caso de fallo esperado
@@ -195,14 +203,16 @@ def _inyectar_f1(rng, base, perf, n_episodios):
         filas.append(_fila(
             card, t0 + pd.Timedelta(minutes=float(minutos[-1])) + brecha,
             monto_base * rng.uniform(8.0, 30.0), rng.integers(0, cfg.N_COMERCIOS),
-            rng.choice(cfg.MCCS), "online", rng.choice(("GT", "US")), "f1", "f1_golpe",
+            rng.choice(cfg.MCCS), rng.choice(("POS", "online")), "GT", "f1", "f1_golpe",
         ))
     return filas
 
 
-def _inyectar_rafagas_legitimas(rng, base, n_episodios):
+def _inyectar_rafagas_legitimas(rng, base, perf, n_episodios):
     """Mismo perfil agregado que f1, montos DESORDENADOS, sin golpe fraudulento.
-    A veces termina en una compra grande legitima."""
+    A veces termina en una compra grande legitima, con la MISMA distribucion
+    de canal, pais y monto que el golpe de f1: la unica diferencia entre los
+    dos mecanismos debe ser el orden de los montos chicos (spec 4.1.1)."""
     cards, t0s = _anclas(rng, base, n_episodios)
     filas = []
     for card, t0 in zip(cards, t0s):
@@ -213,10 +223,11 @@ def _inyectar_rafagas_legitimas(rng, base, n_episodios):
                 rng.choice(cfg.MCCS), rng.choice(("POS", "online")), "GT", "none", "none",
             ))
         if rng.random() < 0.35:
+            monto_base = float(perf.loc[perf["card_id"] == card, "monto_base"].iloc[0])
             filas.append(_fila(
                 card, t0 + pd.Timedelta(minutes=float(minutos[-1] + rng.uniform(5, 55))),
-                rng.uniform(600.0, 3000.0), rng.integers(0, cfg.N_COMERCIOS),
-                rng.choice(cfg.MCCS), "POS", "GT", "none", "none",
+                monto_base * rng.uniform(8.0, 30.0), rng.integers(0, cfg.N_COMERCIOS),
+                rng.choice(cfg.MCCS), rng.choice(("POS", "online")), "GT", "none", "none",
             ))
     return filas
 
@@ -284,7 +295,7 @@ def generar(seed: int, n_tarjetas: int | None = None) -> pd.DataFrame:
 
     filas = []
     filas += _inyectar_f1(rng, base, perf, n_f1)
-    rafagas = _inyectar_rafagas_legitimas(rng, base, int(n_f1 * cfg.RAFAGAS_LEGITIMAS_POR_F1))
+    rafagas = _inyectar_rafagas_legitimas(rng, base, perf, int(n_f1 * cfg.RAFAGAS_LEGITIMAS_POR_F1))
     filas += rafagas
     filas += _inyectar_f2(rng, base, n_f2)
     # f3 va al final y ve las rafagas: su monto debe superar TODO lo legitimo

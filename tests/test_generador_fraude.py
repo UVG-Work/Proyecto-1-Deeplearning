@@ -121,3 +121,53 @@ def test_fraud_type_nunca_se_usa_como_feature_por_error(df):
     # contrato: estas columnas existen pero estan marcadas como solo-analisis
     for col in cfg.COLUMNAS_ANALISIS:
         assert col in df.columns
+
+
+def test_f1_y_rafagas_tienen_la_misma_firma_agregada(df):
+    """f1 y las rafagas legitimas deben ser indistinguibles en cada marginal,
+    y diferir solo en el ORDEN de los montos chicos (spec 4.1.1). Si el canal
+    o el monto del evento grande difieren de forma sistematica, el Modelo A
+    puede separar los dos mecanismos sin leer secuencia, y el confusor pierde
+    su proposito."""
+    f1_sondeos = df[df["fraud_subtype"] == "f1_sondeo"]
+    f1_golpes = df[df["fraud_subtype"] == "f1_golpe"]
+    assert len(f1_sondeos) > 0 and len(f1_golpes) > 0
+
+    legit = df[df["is_fraud"] == 0]
+    chicos_rafaga = []
+    grandes_rafaga = []
+    for _, g in legit.groupby("card_id"):
+        g = g.sort_values("ts").reset_index(drop=True)
+        chicas = g[g["amount"] < 40].reset_index(drop=True)
+        if len(chicas) < 3:
+            continue
+        # se agrupan solo las chicas que forman una racha contigua (gap <2h
+        # entre consecutivas): una compra chica aislada del flujo normal no
+        # cuenta como rafaga, y no debe diluir la comparacion de canal
+        gaps = chicas["ts"].diff().dt.total_seconds()
+        cerca = (gaps < 7200) & (gaps > 0)
+        racha = (~cerca).cumsum()
+        tam = racha.value_counts()
+        validas = tam[tam >= 3].index
+        en_rafaga = chicas[racha.isin(validas)]
+        if en_rafaga.empty:
+            continue
+        chicos_rafaga.append(en_rafaga)
+        ultima = en_rafaga["ts"].max()
+        grande = g[
+            (g["ts"] > ultima) & (g["ts"] <= ultima + pd.Timedelta(hours=2))
+            & (g["amount"] >= 100)
+        ]
+        if len(grande):
+            grandes_rafaga.append(grande)
+
+    chicos_rafaga = pd.concat(chicos_rafaga)
+    grandes_rafaga = pd.concat(grandes_rafaga)
+    assert len(chicos_rafaga) > 0 and len(grandes_rafaga) > 0
+
+    share_f1 = (f1_sondeos["channel"] == "online").mean()
+    share_rafaga = (chicos_rafaga["channel"] == "online").mean()
+    assert abs(share_f1 - share_rafaga) < 0.1, (share_f1, share_rafaga)
+
+    razon = f1_golpes["amount"].median() / grandes_rafaga["amount"].median()
+    assert 0.5 <= razon <= 2.0, razon
