@@ -28,3 +28,35 @@ def construir(df: pd.DataFrame, K: int = cfg.K) -> tuple[np.ndarray, np.ndarray]
 
     win = np.where(disponible, candidatos, pos_global[:, None]).astype(np.int32)
     return win, disponible
+
+
+MODOS = ("full", "history")
+
+
+def permutar(
+    win_idx: np.ndarray, mask: np.ndarray, modo: str, rng: np.random.Generator
+) -> np.ndarray:
+    """Baraja el orden de la ventana sin alterar su contenido.
+
+    - "full":    baraja las K posiciones validas, evento objetivo incluido.
+    - "history": baraja las K-1 previas y deja el objetivo en la ultima
+                 posicion. Aisla el aporte del orden de la HISTORIA.
+
+    Solo se permutan posiciones validas: si el padding se mezclara al
+    centro, la mascara dejaria de describir la secuencia.
+    """
+    if modo not in MODOS:
+        raise ValueError(f"modo debe ser uno de {MODOS}, no {modo!r}")
+
+    perm = win_idx.copy()
+    ultima = win_idx.shape[1] - 1
+
+    for i in range(win_idx.shape[0]):
+        posiciones = np.flatnonzero(mask[i])
+        if modo == "history":
+            posiciones = posiciones[posiciones != ultima]
+        if posiciones.size < 2:
+            continue
+        perm[i, posiciones] = win_idx[i, rng.permutation(posiciones)]
+
+    return perm
