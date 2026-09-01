@@ -112,8 +112,16 @@ Ninguno bloquea, pero conviene mirarlos antes de entregar:
 
 ## 8. Dónde está todo
 
+Todo esto está en el repo:
+
 - **Plan con los tasks pendientes:** `docs/superpowers/plans/2026-08-31-monitoreo-transaccional.md`
 - **Spec de diseño:** `docs/superpowers/specs/2026-08-31-monitoreo-transaccional-design.md`
 - **Enunciado del curso:** `specs_proyecto1_monitoreo_transaccional.md`
-- **Bitácora de decisiones:** `.superpowers/sdd/2026-08-31-monitoreo-transaccional/progress.md`
-- **Reportes por task:** `.superpowers/sdd/2026-08-31-monitoreo-transaccional/task-N-report.md`
+- **Decisiones con su justificación:** `docs/DECISIONES.md` — las 14 decisiones tomadas
+  durante la construcción, cada una con la evidencia que la inclinó y lo que cuesta si
+  resultó equivocada. Es el insumo directo para la sección de decisiones técnicas del
+  README y para la defensa en la presentación.
+
+Solo en la máquina de Andres, no en el repo: los reportes de verificación por task
+(`.superpowers/sdd/2026-08-31-monitoreo-transaccional/task-N-report.md`), con la salida
+de pytest de cada ciclo y las mediciones. Pedímelos si hace falta el detalle.
