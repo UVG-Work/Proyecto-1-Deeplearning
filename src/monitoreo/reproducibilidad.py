@@ -8,18 +8,21 @@ import sys
 
 
 def fijar_semillas(seed: int) -> None:
-    """Fija numpy, random, y (si esta importado) TensorFlow."""
+    """Fija numpy, random y el backend de Keras si esta disponible.
+
+    `keras.utils.set_random_seed` cubre python, numpy y el backend activo
+    (torch en esta maquina), asi que no hace falta sembrar cada uno aparte.
+    """
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     import numpy as np
 
     np.random.seed(seed)
     try:
-        import tensorflow as tf
+        import keras
     except ImportError:
         return
-    tf.random.set_seed(seed)
-    tf.keras.utils.set_random_seed(seed)
+    keras.utils.set_random_seed(seed)
 
 
 def versiones() -> dict[str, str]:
@@ -30,9 +33,15 @@ def versiones() -> dict[str, str]:
         "python": sys.version.split()[0],
         "sistema": f"{platform.system()} {platform.release()}",
     }
-    for paquete in ("numpy", "pandas", "scikit-learn", "tensorflow", "keras", "lightgbm"):
+    for paquete in ("numpy", "pandas", "scikit-learn", "keras", "torch", "lightgbm"):
         try:
             v[paquete] = md.version(paquete)
         except md.PackageNotFoundError:
             v[paquete] = "no instalado"
+    try:
+        import keras
+
+        v["keras_backend"] = keras.backend.backend()
+    except ImportError:
+        v["keras_backend"] = "no instalado"
     return v

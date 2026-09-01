@@ -38,5 +38,22 @@ def test_fijar_semillas_hace_reproducible_a_numpy():
 
 def test_versiones_reporta_las_librerias_del_informe():
     v = rep.versiones()
-    for clave in ("python", "numpy", "pandas", "scikit-learn", "tensorflow", "keras", "lightgbm"):
+    for clave in ("python", "sistema", "numpy", "pandas", "scikit-learn",
+                  "keras", "torch", "lightgbm", "keras_backend"):
         assert clave in v and v[clave]
+
+
+def test_dev_mode_apagado_con_cero():
+    """MONITOREO_DEV=0 significa apagado, no encendido."""
+    import os
+    from monitoreo import config as c
+    prev = os.environ.get("MONITOREO_DEV")
+    try:
+        os.environ["MONITOREO_DEV"] = "0"
+        assert c.dev_mode() is False
+        os.environ["MONITOREO_DEV"] = "1"
+        assert c.dev_mode() is True
+    finally:
+        os.environ.pop("MONITOREO_DEV", None)
+        if prev is not None:
+            os.environ["MONITOREO_DEV"] = prev

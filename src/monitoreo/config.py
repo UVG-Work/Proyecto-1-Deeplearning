@@ -55,7 +55,8 @@ PATRONES_PROHIBIDOS_EN_A = ("prev", "lag", "delta", "diff", "anterior", "orden",
 
 
 def dev_mode() -> bool:
-    return bool(os.environ.get("MONITOREO_DEV"))
+    """MONITOREO_DEV=0 / "" / ausente apagan el modo rapido."""
+    return os.environ.get("MONITOREO_DEV", "").strip().lower() in {"1", "true", "si", "yes"}
 
 
 def n_tarjetas() -> int:
