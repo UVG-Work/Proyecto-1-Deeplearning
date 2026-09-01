@@ -32,7 +32,7 @@ def _n_distintos_causal(ts: np.ndarray, comercio: np.ndarray, ventana: pd.Timede
     izq = 0
     for der in range(n):
         limite = ts[der] - ventana.to_timedelta64()
-        while izq < der and ts[izq] <= limite:
+        while izq < der and ts[izq] < limite:
             c = int(comercio[izq])
             conteo[c] -= 1
             if conteo[c] == 0:

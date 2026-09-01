@@ -191,3 +191,11 @@ def test_el_fraude_se_reparte_a_lo_largo_del_horizonte(df):
     # ningun decil puede alejarse mas de 2x de la tasa global
     assert min(tasas) > tasa_global / 2.5, (min(tasas), tasa_global)
     assert max(tasas) < tasa_global * 2.5, (max(tasas), tasa_global)
+
+    # los extremos del horizonte no pueden quedar vacios: es la forma suave del
+    # mismo defecto, y la banda de 2.5x sobre deciles no la detecta
+    borde = horizonte * 0.05
+    primeros = df[dias < borde]
+    ultimos = df[dias > horizonte - borde]
+    assert primeros["is_fraud"].sum() > 0, "sin fraude en el primer 5% del horizonte"
+    assert ultimos["is_fraud"].sum() > 0, "sin fraude en el ultimo 5% del horizonte"

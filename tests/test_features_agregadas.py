@@ -105,3 +105,20 @@ def test_alineado_con_el_dataframe_de_entrada():
     X = fa.construir(df)
     assert len(X) == len(df)
     assert (X.index == df.index).all()
+
+
+def test_las_dos_ventanas_de_24h_coinciden_en_el_borde():
+    """n_tx_24h usa rolling(closed='left') y n_merchants_24h un barrido de dos
+    punteros. Ambos describen la MISMA ventana, asi que una transaccion que cae
+    exactamente sobre el borde izquierdo tiene que entrar en los dos o en
+    ninguno."""
+    df = _mini([10, 20], [0, 24], comercios=[5, 7])
+    X = fa.construir(df)
+    assert X.loc[1, "n_tx_24h"] == 1
+    assert X.loc[1, "n_merchants_24h"] == 1
+
+    # justo fuera de la ventana: ninguno de los dos debe contarla
+    df = _mini([10, 20], [0, 24.001], comercios=[5, 7])
+    X = fa.construir(df)
+    assert X.loc[1, "n_tx_24h"] == 0
+    assert X.loc[1, "n_merchants_24h"] == 0
