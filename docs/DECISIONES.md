@@ -128,3 +128,87 @@ Task 7: minor: caracter no-ASCII (§) en un docstring de test_permutacion.py, he
 Task 8: minor: construir() no verifica que df venga ordenado por (card_id, ts); un frame
   desordenado produce Delta_t y same_merchant_as_prev basura EN SILENCIO. Se eleva a arreglo
   porque June va a llamar esa funcion y el fallo no da error.
+
+---
+
+# Fase 2 — tasks 9 a 16 (modelos, notebook y entregables)
+
+## Ruling T9-1: Keras 3 sobre backend **torch**, no TensorFlow.
+TensorFlow no publica ruedas para Python 3.14, que es el unico interprete de la
+maquina (no hay conda ni un 3.12 instalado). Keras 3 es multi-backend y el Modelo B
+esta escrito en API de Keras pura -- `keras.utils.PyDataset`, `layers.GRU`,
+`keras.metrics.AUC` -- asi que corre sin un solo cambio sobre torch, que ya estaba
+instalado, y guarda el mismo artefacto `.keras`. `monitoreo/__init__.py` fija
+`KERAS_BACKEND=torch` antes de que Keras se importe. — Si me equivoco: ninguna cifra
+cambia; lo unico que cambia es la tabla de versiones del README. Riesgo real: si
+alguien importa `keras` ANTES que `monitoreo`, la importacion falla, porque Keras
+intenta cargar TensorFlow por defecto. Documentado en el README.
+
+## Ruling T9-2: `BATCH_SIZE` sube de 512 a 2048.
+A 420k eventos la epoca baja de 102 s a 46 s en CPU, y el notebook entrena 11 modelos
+secuenciales. Ademas, con 1.2 % de fraude un lote de 2048 lleva ~24 positivos en vez
+de ~6, lo que estabiliza el gradiente de la clase minoritaria en vez de degradarlo.
+— Si me equivoco: lotes mas grandes dan menos pasos de gradiente por epoca; el
+`EarlyStopping` sobre AUC-PR de validacion protege contra una convergencia peor.
+
+## Ruling T12-1: el AUC-PR se reporta sobre el puntaje CRUDO; el calibrado se reserva
+para la decision de costo.
+El test del plan afirmaba que la isotonica conserva el AUC-PR. **No lo hace.** Es
+monotona no decreciente, asi que no invierte ningun par, pero al aplanar tramos crea
+empates, y la precision promedio si cambia con los empates: medido, 5,000 puntajes
+distintos colapsaron a 5 mesetas y el AUC-PR se movio 0.024. El invariante real es la
+monotonia, que es lo que ahora verifica el test. — Si me equivoco: ninguno; medir
+ranking sobre el puntaje calibrado castigaria al modelo por un artefacto del
+calibrador y no por su capacidad de ordenar.
+
+## Ruling T12-2: `u*` empirico puede caer lejos de 0.0429 sin que la calibracion haya fallado.
+El enunciado pide verificarlo y explicarlo. La isotonica aplana tramos enteros, asi que
+el barrido de umbrales recorre una escalera y **cualquier** umbral dentro de un escalon
+produce las mismas decisiones y el mismo costo; `argmin` devuelve el primero de esos
+empates. La comprobacion que importa no es que `u*` coincida con el valor teorico sino
+que **el costo en `u*` no sea peor que en el umbral teorico**, y el notebook lo mide:
+la diferencia salio Q0 para los tres modelos. — Si me equivoco: ninguno, la celda
+imprime la evidencia.
+
+## Ruling T14-1: los agregados que entran al hibrido se escalan con su propio
+`StandardScaler`, ajustado solo con train.
+El plan concatenaba `X_A` crudo al estado oculto del GRU. Un monto en quetzales junto a
+un vector de activaciones acotadas domina la capa densa por pura escala. — Si me
+equivoco: ninguno; hay un test que verifica que la media de train quede en cero y que
+la global NO, que es la prueba de que val y test no entraron al `fit`.
+
+## Ruling T16-1: el modelo candidato se elige por AUC-PR de VALIDACION, nunca por el
+costo en test.
+La celda de artefactos que traia el plan elegia el candidato con `min(costo en test)`.
+Eso es literalmente "elegir mirando test", la penalizacion de -10 pts. El candidato se
+decide en validacion y el costo en test solo se reporta. Ademas se guardan los dos
+artefactos -- el candidato neuronal `.keras` y la linea base LightGBM -- porque la
+recomendacion es *complementar* y un ensamble necesita las dos piezas. — Si me
+equivoco: ninguno; es estrictamente mas conservador.
+
+## Ruling T16-2: el cache de modelos lleva una huella de los datos con que se entreno.
+La clave era solo la semilla. Un modelo entrenado en modo dev (400 tarjetas) se habria
+cargado en una corrida completa si las formas coincidian por casualidad -- y las
+cardinalidades de embedding pueden coincidir -- y el notebook habria reportado cifras
+de otro experimento **sin fallar**. Cada `.keras` lleva ahora un sidecar con
+`n_eventos`, `K`, `d_num`, cardinalidades, `n_train` e `hibrido`. — Si me equivoco:
+ninguno; en el peor caso reentrena de mas.
+
+## Ruling T13-1: el caso de fallo esperado de f1 usa su propio dataset de 1200 tarjetas.
+La brecha > 24 h ocurre en el 15 % de los episodios f1. Con 250 tarjetas hay ~23
+episodios y la muestra no alcanza a observarla: P(ninguno) ~ 2.4 %. No era un defecto
+del generador -- se verifico que la brecha aparece en el 14 % de los episodios a escala
+de 1200 y 4000 tarjetas -- sino del tamano del fixture. — Si me equivoco: ninguno; el
+test corre sobre datos mas grandes y tarda 2 s mas.
+
+## Ruling T11-1: el test de la metrica AUC-PR verifica el `history` de `fit`, no `model.metrics`.
+En Keras 3, `model.metrics` solo lista el contenedor `compile_metrics` hasta que el
+modelo se construye, asi que la asercion del plan probaba un detalle de la API y no el
+contrato. Lo que EarlyStopping necesita es que `fit` emita la clave `val_auc_pr`, y eso
+es lo que ahora se afirma. — Si me equivoco: ninguno, se verifica algo mas fuerte.
+
+## Ruling T1-1: `dev_mode()` deja de tratar `MONITOREO_DEV=0` como verdadero.
+Era `bool(os.environ.get(...))`, asi que cualquier valor no vacio encendia el modo
+rapido, incluido "0". Un minor diferido del traspaso, con consecuencia real: una
+corrida "completa" lanzada con `MONITOREO_DEV=0` habria producido cifras de 400
+tarjetas. — Si me equivoco: ninguno.

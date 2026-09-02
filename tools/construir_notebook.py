@@ -498,7 +498,8 @@ no vendría de la secuencia sino de la representación por evento.
 
 code(r"""
 t0 = time.time()
-tabla_k = exp.curva_k(ks=(1, 3, 5, 10, 20), seed=cfg.SEEDS_MODELO[0])
+tabla_k = exp.curva_k(ks=(1, 3, 5, 10, 20), seed=cfg.SEEDS_MODELO[0],
+                      dir_cache=DIR_MODELOS)
 print(f"Curva completa en {(time.time()-t0)/60:.1f} min")
 tabla_k
 """)

@@ -225,16 +225,24 @@ def tabla_permutacion(modelo, d: dict, p_a_val: np.ndarray, hibrido: bool = Fals
 
 
 def curva_k(ks=(1, 3, 5, 10, 20), seed: int = cfg.SEEDS_MODELO[0],
-            n_tarjetas: int | None = None, verbose: int = 0) -> pd.DataFrame:
+            n_tarjetas: int | None = None, verbose: int = 0,
+            dir_cache: Path | None = None) -> pd.DataFrame:
     """AUC-PR de validacion en funcion de cuanta historia ve el modelo.
 
     Con K=1 el secuencial degenera en un clasificador puntual y deberia
     caer a la altura de A: control de sanidad de la figura.
+
+    Son cinco entrenamientos completos. Con `dir_cache` cada uno queda en
+    disco, de modo que una corrida interrumpida retoma donde iba.
     """
     filas = []
     for K in ks:
         d = preparar(n_tarjetas=n_tarjetas, K=K)
-        r = correr_b(d, seed=seed, verbose=verbose)
+        if dir_cache is None:
+            r = correr_b(d, seed=seed, verbose=verbose)
+        else:
+            r = correr_b_cacheado(d, seed=seed, verbose=verbose,
+                                  ruta=Path(dir_cache) / f"b_K{K}_semilla{seed}.keras")
         filas.append({"K": K, "auc_pr": r["auc_pr"], "epocas": r["epocas"],
                       "segundos": r["segundos"]})
     return pd.DataFrame(filas)
