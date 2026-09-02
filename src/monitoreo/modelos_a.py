@@ -20,7 +20,7 @@ def entrenar_logistica(X_tr: np.ndarray, y_tr: np.ndarray, seed: int) -> Pipelin
         [
             ("escala", StandardScaler()),
             ("clf", LogisticRegression(
-                class_weight="balanced", max_iter=2000, random_state=seed, n_jobs=-1)),
+                class_weight="balanced", max_iter=2000, random_state=seed)),
         ]
     ).fit(X_tr, y_tr)
 
