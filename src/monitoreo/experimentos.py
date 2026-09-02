@@ -131,6 +131,31 @@ def correr_b(d: dict, seed: int, hibrido: bool = False, epocas: int = cfg.EPOCAS
     }
 
 
+def correr_b_cacheado(d: dict, seed: int, ruta, hibrido: bool = False,
+                      epocas: int = cfg.EPOCAS_MAX, verbose: int = 0) -> dict:
+    """Entrena, o recupera del disco un modelo ya entrenado.
+
+    Reejecutar el notebook completo cuesta horas de GRU en CPU. Con los
+    pesos en disco cuesta minutos y las cifras son las mismas, porque las
+    semillas estan fijas. Borrar el directorio fuerza el reentrenamiento.
+    """
+    import keras
+
+    ruta = Path(ruta)
+    if ruta.exists():
+        modelo = keras.models.load_model(ruta)
+        p_val = predecir_split(modelo, d, d["va"], hibrido=hibrido)
+        return {"modelo": modelo, "p_val": p_val,
+                "auc_pr": met.auc_pr(d["y"][d["va"]], p_val),
+                "epocas": None, "segundos": 0.0, "desde_cache": True}
+
+    r = correr_b(d, seed, hibrido=hibrido, epocas=epocas, verbose=verbose)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    r["modelo"].save(ruta)
+    r["desde_cache"] = False
+    return r
+
+
 def predecir_split(modelo, d: dict, sel: np.ndarray, hibrido: bool = False) -> np.ndarray:
     """Puntajes de B/C sobre un subconjunto cualquiera del indice canonico."""
     agg = d["X_A_esc"][sel] if hibrido else None

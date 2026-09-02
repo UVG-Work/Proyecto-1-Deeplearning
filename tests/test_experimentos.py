@@ -86,3 +86,13 @@ def test_en_cache_no_recalcula(tmp_path):
     assert len(llamadas) == 1
     assert exp.en_cache(ruta, caro, forzar=True)["v"] == 42
     assert len(llamadas) == 2
+
+
+def test_correr_b_cacheado_reusa_los_pesos_del_disco(d, tmp_path):
+    """Segunda llamada: mismos puntajes, sin reentrenar."""
+    ruta = tmp_path / "b.keras"
+    a = exp.correr_b_cacheado(d, seed=7, ruta=ruta, epocas=1)
+    assert a["desde_cache"] is False and ruta.exists()
+    b = exp.correr_b_cacheado(d, seed=7, ruta=ruta, epocas=1)
+    assert b["desde_cache"] is True
+    assert np.allclose(a["p_val"], b["p_val"], atol=1e-6)

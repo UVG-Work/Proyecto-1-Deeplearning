@@ -4,3 +4,5 @@ __pycache__/
 datos/
 *.parquet
 .venv/
+notebooks/_dev_smoke.ipynb
+artefactos/modelos/
