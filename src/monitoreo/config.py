@@ -38,7 +38,10 @@ UMBRAL_TEORICO = COSTO_FP / COSTO_FN
 DIM_EMB = {"mcc": 8, "channel": 4, "merchant": 16}
 PAD, UNK = 0, 1
 
-BATCH_SIZE = 512
+# 2048 y no 512: el GRU de Keras-torch en CPU va 2x mas rapido por epoca
+# (46 s vs 102 s a 420k eventos) y con 1.2 % de fraude cada lote lleva ~24
+# positivos en vez de ~6, lo que estabiliza el gradiente de la minoritaria.
+BATCH_SIZE = 2048
 UNIDADES_GRU = 64
 DROPOUT = 0.3
 LR = 1e-3
