@@ -96,3 +96,21 @@ def test_correr_b_cacheado_reusa_los_pesos_del_disco(d, tmp_path):
     b = exp.correr_b_cacheado(d, seed=7, ruta=ruta, epocas=1)
     assert b["desde_cache"] is True
     assert np.allclose(a["p_val"], b["p_val"], atol=1e-6)
+
+
+def test_el_cache_no_reusa_un_modelo_de_otro_dataset(d, tmp_path):
+    """Un modelo entrenado en dev no debe cargarse en una corrida completa
+    aunque las formas coincidan: reportaria cifras de otro experimento."""
+    ruta = tmp_path / "b.keras"
+    exp.correr_b_cacheado(d, seed=7, ruta=ruta, epocas=1)
+    assert ruta.with_suffix(".huella.json").exists()
+
+    otro = exp.preparar(n_tarjetas=200)
+    r = exp.correr_b_cacheado(otro, seed=7, ruta=ruta, epocas=1)
+    assert r["desde_cache"] is False, "reuso un modelo entrenado con otros datos"
+
+
+def test_la_huella_distingue_hibrido_de_puro(d):
+    a = exp._huella(d, 7, hibrido=False)
+    b = exp._huella(d, 7, hibrido=True)
+    assert a != b and a["d_agg"] == 0 and b["d_agg"] > 0

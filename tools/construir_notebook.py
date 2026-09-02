@@ -926,6 +926,51 @@ for p in sorted(cfg.DIR_ARTEFACTOS.glob("*")):
         print(f"  {p.name:28s} {p.stat().st_size/1024:8.1f} KB")
 """)
 
+code(r"""
+# Todas las cifras del informe en un solo JSON, para que el informe se
+# escriba desde los datos y no copiando numeros a mano.
+resultados = {
+    "K": cfg.K,
+    "seed_datos": cfg.SEED_DATOS,
+    "costos": {"FN": cfg.COSTO_FN, "FP": cfg.COSTO_FP},
+    "n_eventos": int(len(d["df"])),
+    "n_test": int(te.sum()),
+    "n_fraude_test": int(y_te.sum()),
+    "n_legitimas_test": int((y_te == 0).sum()),
+    "n_tarjetas": int(d["df"]["card_id"].nunique()),
+    "tasa_fraude_global": float(d["y"].mean()),
+    "particion": json.loads(part.tabla(d["df"], d["split"]).to_json(orient="records", date_format="iso")),
+    "validacion": {
+        "auc_pr": {"A_logistica": [m_log, s_log], "A_gbm": [m_gbm, s_gbm],
+                   "B_gru": [m_b, s_b], "C_hibrido": [m_c, s_c]},
+        "prevalencia": float(y_va.mean()),
+    },
+    "permutacion": json.loads(tabla4.to_json(orient="records")),
+    "ablacion_delta_t": {"con": float(res_b[cfg.SEEDS_MODELO[0]]["auc_pr"]),
+                         "sin": float(r_sin_dt["auc_pr"])},
+    "curva_k": json.loads(tabla_k.to_json(orient="records")),
+    "apuesta_C": {"hipotesis": HIPOTESIS_C, "fecha": FECHA_HIPOTESIS,
+                  "umbral_exito": UMBRAL_EXITO_C, "mejor_puro": float(mejor_puro),
+                  "C": float(m_c), "ganancia": float(ganancia),
+                  "se_sostuvo": bool(se_sostuvo)},
+    "desglose_validacion": json.loads(comparacion.to_json(orient="index")),
+    "desglose_test": json.loads(comp_test.to_json(orient="index")),
+    "umbrales": {"A": u_a, "B": u_b, "C": u_c, "teorico": cfg.UMBRAL_TEORICO},
+    "test": json.loads(tabla_test.to_json(orient="records")),
+    "economia": {"costo_A": costo_a_te, "costo_B": costo_b_te, "costo_C": costo_c_te,
+                 "ahorro_mensual_B": ahorro_b, "ahorro_mensual_C": ahorro_c,
+                 "dias_test": dias_test, "tx_por_dia": tx_por_dia},
+    "candidato": nombre_candidato,
+    "menor_costo_en_test": menor_costo,
+    "fecha_ejecucion_test": FECHA_EJECUCION_TEST,
+}
+(cfg.DIR_ARTEFACTOS / "resultados_informe.json").write_text(
+    json.dumps(resultados, indent=2, default=str), encoding="utf-8")
+print("Escrito artefactos/resultados_informe.json")
+print(json.dumps({k: v for k, v in resultados.items()
+                  if k in ("candidato", "menor_costo_en_test", "fecha_ejecucion_test")}, indent=2))
+""")
+
 md(r"""
 ---
 # 18. Recomendación

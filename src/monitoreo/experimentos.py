@@ -142,18 +142,45 @@ def correr_b_cacheado(d: dict, seed: int, ruta, hibrido: bool = False,
     import keras
 
     ruta = Path(ruta)
-    if ruta.exists():
-        modelo = keras.models.load_model(ruta)
-        p_val = predecir_split(modelo, d, d["va"], hibrido=hibrido)
-        return {"modelo": modelo, "p_val": p_val,
-                "auc_pr": met.auc_pr(d["y"][d["va"]], p_val),
-                "epocas": None, "segundos": 0.0, "desde_cache": True}
+    huella_actual = _huella(d, seed, hibrido)
+    ruta_huella = ruta.with_suffix(".huella.json")
+
+    if ruta.exists() and ruta_huella.exists():
+        guardada = json.loads(ruta_huella.read_text(encoding="utf-8"))
+        if guardada == huella_actual:
+            modelo = keras.models.load_model(ruta)
+            p_val = predecir_split(modelo, d, d["va"], hibrido=hibrido)
+            return {"modelo": modelo, "p_val": p_val,
+                    "auc_pr": met.auc_pr(d["y"][d["va"]], p_val),
+                    "epocas": None, "segundos": 0.0, "desde_cache": True}
 
     r = correr_b(d, seed, hibrido=hibrido, epocas=epocas, verbose=verbose)
     ruta.parent.mkdir(parents=True, exist_ok=True)
     r["modelo"].save(ruta)
+    ruta_huella.write_text(json.dumps(huella_actual, indent=2), encoding="utf-8")
     r["desde_cache"] = False
     return r
+
+
+def _huella(d: dict, seed: int, hibrido: bool) -> dict:
+    """Identifica los datos con los que se entreno un modelo en cache.
+
+    Sin esto, un modelo entrenado en modo dev (400 tarjetas) se cargaria
+    en una corrida completa si las formas coincidieran por casualidad, y
+    el notebook reportaria cifras de otro experimento sin fallar.
+    """
+    return {
+        "n_eventos": int(len(d["df"])),
+        "n_tarjetas": int(d["df"]["card_id"].nunique()),
+        "K": int(d["K"]),
+        "d_num": int(d["E_num"].shape[1]),
+        "cardinalidades": {k: int(v) for k, v in fe.cardinalidades(d["vocab"]).items()},
+        "n_train": int(d["tr"].sum()),
+        "hibrido": bool(hibrido),
+        "d_agg": int(d["X_A_esc"].shape[1]) if hibrido else 0,
+        "seed": int(seed),
+        "seed_datos": int(cfg.SEED_DATOS),
+    }
 
 
 def predecir_split(modelo, d: dict, sel: np.ndarray, hibrido: bool = False) -> np.ndarray:
