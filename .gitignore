@@ -6,3 +6,6 @@ datos/
 .venv/
 notebooks/_dev_smoke.ipynb
 artefactos/modelos/
+
+informe/*.html
+informe/_prueba.*
