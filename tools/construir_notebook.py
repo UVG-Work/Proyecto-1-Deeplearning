@@ -51,7 +51,7 @@ agregados causales contra la secuencia ordenada de `K=20` eventos.
 
 ## Cómo leer este notebook
 
-Toda la lógica vive en `src/monitoreo/` con tests (`python -m pytest`, 128
+Toda la lógica vive en `src/monitoreo/` con tests (`python -m pytest`, 140
 tests). Aquí no se define nada: se llama y se presenta. Eso es deliberado —
 lo que puede costar puntos por fuga de información está cubierto por una
 suite ejecutable (`tests/test_integridad.py`), no por la buena fe del lector.

@@ -129,27 +129,45 @@ una CNN 1D entrenaría más rápido y llegaría igual de lejos. La curva de
 recorte de historia (Fig. 3) es lo que discrimina: si la AUC-PR saturara ya
 en `K = 3`, la elección de GRU estaría sobredimensionada.
 
-### 4.2 `K = 20`, elegido por la curva de recorte y no a dedo
+### 4.2 `K = 20` — la curva de recorte **no** respalda esta elección
 
 **Alternativas consideradas.** `K ∈ {1, 3, 5, 10, 20}`.
 
-**La evidencia que inclinó la decisión.** Se entrenó un modelo por cada
-valor de `K` con la semilla 7, sobre la misma partición, y se graficó la
-AUC-PR de validación contra `K` (Fig. 3, §11 del notebook). `K = 20` es el
-valor que el enunciado sugiere, pero aquí está *justificado*: la figura
-muestra dónde satura la ganancia, que es la respuesta a una pregunta de
-negocio real — cuánta historia hay que guardar en producción para puntuar
-una transacción.
+**La evidencia, y lo que dice en contra nuestra.** Se entrenó un modelo por
+cada valor de `K` con la semilla 7, sobre la misma partición (Fig. 3, §11
+del notebook). El resultado no es el que esperábamos:
 
-La curva trae además un control de sanidad gratis: con `K = 1` el modelo
-secuencial no tiene historia que leer y degenera en un clasificador
-puntual, así que **debe** caer a la altura de A. Si con `K = 1` siguiera
-ganando, la ventaja no vendría de la secuencia sino de la representación
-por evento, y toda la tesis del proyecto estaría mal atribuida.
+| K | AUC-PR val |
+|---:|---:|
+| 1 | 0.7146 |
+| 3 | **0.7491** ← óptimo |
+| 5 | 0.7470 |
+| 10 | 0.6346 |
+| 20 | 0.6360 |
 
-**Qué cuesta si nos equivocamos.** No se exploró `K > 20`. Si la curva aún
-subiera en 20, estaríamos dejando señal sobre la mesa y subestimando el
-valor del orden.
+`K = 20` es el valor que fijamos al principio, siguiendo la sugerencia del
+enunciado, y sobre él está construido todo lo demás: el Modelo B, el
+híbrido C, la permutación y los artefactos. **La curva dice que fue una mala
+elección**: el óptimo está en `K = 3` y `K = 20` rinde 0.11 por debajo.
+
+Lo decimos así porque es exactamente lo que la curva de recorte existe para
+detectar, y porque presentarla como si hubiera confirmado nuestra decisión
+sería el tipo de conclusión deshonesta que el enunciado penaliza. La
+decisión defendible aquí no es "elegimos K=20 con evidencia" sino "fijamos
+K=20 a priori y nuestra propia prueba de falsificación lo desmintió".
+
+Hay además un segundo hallazgo incómodo: con `K = 1` el modelo **no** tiene
+historia que leer y aun así rinde 0.7146, por encima de `K = 20`. Ese punto
+estaba puesto como piso de sanidad. Que el piso supere a la configuración
+completa apunta a un problema de optimización —30 épocas fijas, sin
+programación de tasa de aprendizaje, y más padding conforme crece `K`— y no
+a que la historia larga carezca de información.
+
+**Qué cuesta que nos hayamos equivocado.** El Modelo B está evaluado en su
+peor configuración, así que la comparación A vs B lo trata injustamente y
+el valor del orden queda **subestimado**. La primera prueba a correr con más
+tiempo es reentrenar B y C en `K = 3` y rehacer la comparación económica.
+No lo hicimos aquí por presupuesto de cómputo: son ~2 h más de CPU.
 
 ### 4.3 Ruta A (generador sintético) sobre Ruta B (dataset público)
 
@@ -213,10 +231,20 @@ banco, ni con qué prevalencia.
 
 ## 5. Candidato al Proyecto Final
 
-**Qué se conserva.** El modelo de menor costo esperado en test, guardado en
-`artefactos/modelo_candidato.keras`. `artefactos/config.json` registra cuál
-fue, su `u*` congelado, las AUC-PR de validación y test, el ahorro mensual
-estimado y las versiones exactas.
+**Qué se conserva.** El mejor modelo secuencial **según la AUC-PR de
+validación** —nunca según el costo en test, que sería la penalización de
+−10 pts—, guardado en `artefactos/modelo_candidato.keras`. Resultó ser
+**B (GRU)**, con 0.7138 de AUC-PR en validación contra 0.6939 del híbrido C.
+`artefactos/config.json` registra el criterio de selección, el `u*`
+congelado, las AUC-PR de validación y test, el impacto económico y las
+versiones exactas.
+
+Se conserva también `artefactos/modelo_a_lightgbm.pkl`, el motor de
+agregados. No es un extra: es el modelo que **gana** en este proyecto, y la
+recomendación al comité es seguir decidiendo con él. El candidato secuencial
+se guarda porque es la pieza que el Proyecto Final tendría que retomar y
+mejorar —empezando por reentrenarlo en `K = 3`, ver §4.2—, no porque hoy sea
+el mejor clasificador de los dos.
 
 Acompañan al modelo: `scaler.pkl` (los dos `StandardScaler`, el de eventos
 y el de agregados, ambos ajustados **solo con train**),

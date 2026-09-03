@@ -1,0 +1,239 @@
+{
+  "K": 20,
+  "seed_datos": 20260831,
+  "costos": {
+    "FN": 4200.0,
+    "FP": 180.0
+  },
+  "n_eventos": 419821,
+  "n_test": 62974,
+  "n_fraude_test": 703,
+  "n_legitimas_test": 62271,
+  "n_tarjetas": 4000,
+  "tasa_fraude_global": 0.011788357418995239,
+  "particion": [
+    {
+      "split": "train",
+      "n": 293874,
+      "fecha_min": "2026-01-01T00:02:52.000",
+      "fecha_max": "2026-03-05T05:37:05.000",
+      "n_fraude": 3543,
+      "tasa_fraude": 0.0120561873
+    },
+    {
+      "split": "val",
+      "n": 62973,
+      "fecha_min": "2026-03-05T05:37:35.000",
+      "fecha_max": "2026-03-18T13:58:30.000",
+      "n_fraude": 703,
+      "tasa_fraude": 0.0111635145
+    },
+    {
+      "split": "test",
+      "n": 62974,
+      "fecha_min": "2026-03-18T13:58:33.000",
+      "fecha_max": "2026-03-31T23:56:49.000",
+      "n_fraude": 703,
+      "tasa_fraude": 0.0111633373
+    }
+  ],
+  "validacion": {
+    "auc_pr": {
+      "A_logistica": [
+        0.46487450627847254,
+        0.0
+      ],
+      "A_gbm": [
+        0.8328582732704707,
+        0.002495368214146374
+      ],
+      "B_gru": [
+        0.7137847506722514,
+        0.06847364475558955
+      ],
+      "C_hibrido": [
+        0.6938677897199436,
+        0.03110764340011059
+      ]
+    },
+    "prevalencia": 0.011163514522096771
+  },
+  "permutacion": [
+    {
+      "variante": "original",
+      "auc_pr_B": 0.636020874,
+      "auc_pr_A": 0.8316638751,
+      "caida_B": 0.0
+    },
+    {
+      "variante": "full",
+      "auc_pr_B": 0.0232065708,
+      "auc_pr_A": 0.8316638751,
+      "caida_B": 0.6128143032
+    },
+    {
+      "variante": "history",
+      "auc_pr_B": 0.4605249121,
+      "auc_pr_A": 0.8316638751,
+      "caida_B": 0.1754959619
+    }
+  ],
+  "ablacion_delta_t": {
+    "con": 0.6360208739996912,
+    "sin": 0.7253014821241404
+  },
+  "curva_k": [
+    {
+      "K": 1,
+      "auc_pr": 0.7146241226,
+      "epocas": null,
+      "segundos": 0.0
+    },
+    {
+      "K": 3,
+      "auc_pr": 0.7490544489,
+      "epocas": null,
+      "segundos": 0.0
+    },
+    {
+      "K": 5,
+      "auc_pr": 0.7470484438,
+      "epocas": null,
+      "segundos": 0.0
+    },
+    {
+      "K": 10,
+      "auc_pr": 0.6346069453,
+      "epocas": null,
+      "segundos": 0.0
+    },
+    {
+      "K": 20,
+      "auc_pr": 0.636020874,
+      "epocas": null,
+      "segundos": 0.0
+    }
+  ],
+  "apuesta_C": {
+    "hipotesis": "Creemos que concatenar el estado oculto del GRU con el vector de agregados de A antes de la capa de salida mejorara la AUC-PR en validacion porque f2 y f3 son mayormente capturables por agregados mientras que f1 requiere orden, y ningun modelo puro cubre ambos regimenes. Lo consideraremos util si la AUC-PR en validacion supera a la del mejor de A y B por al menos 0.02 absoluto, promediado sobre 3 semillas.",
+    "fecha": "2026-09-03T01:17:08",
+    "umbral_exito": 0.02,
+    "mejor_puro": 0.8328582732704707,
+    "C": 0.6938677897199436,
+    "ganancia": -0.13899048355052712,
+    "se_sostuvo": false
+  },
+  "desglose_validacion": {
+    "f1_golpe": {
+      "n_fraude": 51,
+      "auc_pr_A": 0.3641204558,
+      "auc_pr_B": 0.4644463798,
+      "auc_pr_C": 0.3508360179,
+      "B_menos_A": 0.100325924
+    },
+    "f1_sondeo": {
+      "n_fraude": 229,
+      "auc_pr_A": 0.2223725829,
+      "auc_pr_B": 0.1162576219,
+      "auc_pr_C": 0.1841612925,
+      "B_menos_A": -0.106114961
+    },
+    "f2": {
+      "n_fraude": 235,
+      "auc_pr_A": 0.9795286422,
+      "auc_pr_B": 0.6628951353,
+      "auc_pr_C": 0.6971675795,
+      "B_menos_A": -0.3166335069
+    },
+    "f3": {
+      "n_fraude": 188,
+      "auc_pr_A": 0.7856218649,
+      "auc_pr_B": 0.4759188301,
+      "auc_pr_C": 0.6655920524,
+      "B_menos_A": -0.3097030348
+    }
+  },
+  "desglose_test": {
+    "f1_golpe": {
+      "n_fraude": 57,
+      "auc_pr_A": 0.5938943772,
+      "auc_pr_B": 0.6396342796,
+      "auc_pr_C": 0.6008839656,
+      "B_menos_A": 0.0457399024
+    },
+    "f1_sondeo": {
+      "n_fraude": 250,
+      "auc_pr_A": 0.2875304979,
+      "auc_pr_B": 0.1430444134,
+      "auc_pr_C": 0.2075709914,
+      "B_menos_A": -0.1444860845
+    },
+    "f2": {
+      "n_fraude": 211,
+      "auc_pr_A": 0.9681417684,
+      "auc_pr_B": 0.582768583,
+      "auc_pr_C": 0.7262416365,
+      "B_menos_A": -0.3853731855
+    },
+    "f3": {
+      "n_fraude": 185,
+      "auc_pr_A": 0.8312569089,
+      "auc_pr_B": 0.4800109879,
+      "auc_pr_C": 0.756176621,
+      "B_menos_A": -0.3512459211
+    }
+  },
+  "umbrales": {
+    "A": 0.04004004004004004,
+    "B": 0.03203203203203203,
+    "C": 0.03303303303303303,
+    "teorico": 0.04285714285714286
+  },
+  "test": [
+    {
+      "modelo": "A \u2014 LightGBM",
+      "auc_pr": 0.8498902424,
+      "u*": 0.04004004,
+      "precision": 0.4527296937,
+      "recall": 0.9672830725,
+      "f1": 0.6167800454,
+      "FN": 23,
+      "FP": 822,
+      "costo_Q": 244560.0
+    },
+    {
+      "modelo": "B \u2014 GRU",
+      "auc_pr": 0.6223539274,
+      "u*": 0.032032032,
+      "precision": 0.3016627078,
+      "recall": 0.9032716927,
+      "f1": 0.4522792023,
+      "FN": 68,
+      "FP": 1470,
+      "costo_Q": 550200.0
+    },
+    {
+      "modelo": "C \u2014 Hibrido",
+      "auc_pr": 0.7465955174,
+      "u*": 0.033033033,
+      "precision": 0.3509641873,
+      "recall": 0.906116643,
+      "f1": 0.5059571088,
+      "FN": 66,
+      "FP": 1178,
+      "costo_Q": 489240.0
+    }
+  ],
+  "economia": {
+    "costo_A": 244560.0,
+    "costo_B": 550200.0,
+    "costo_C": 489240.0,
+    "ahorro_mensual_B": -683479.9533429501,
+    "ahorro_mensual_C": -547159.6485537005,
+    "dias_test": 13.415462962962962,
+    "tx_por_dia": 4694.135429679682
+  },
+  "candidato": "B \u2014 GRU",
+  "menor_costo_en_test": "A \u2014 LightGBM",
+  "fecha_ejecucion_test": "2026-09-03T01:22:43"
+}

@@ -123,9 +123,78 @@ def tabla_k() -> str:
 
 # --------------------------------------------------- lectura de resultados
 
+ganancia_f1 = des_val.get("f1_golpe", {}).get("B_menos_A", 0.0)
+k_mejor = k_max["K"]
+k_usado = R["K"]
+b_pierde_dinero = eco["ahorro_mensual_B"] < 0
+
+if b_pierde_dinero:
+    titulo_reco = "**conservar el motor actual**, con el secuencial como sonda acotada"
+    cuerpo_reco = (
+        f"Desplegar B como decisor costaría **{q(abs(eco['ahorro_mensual_B']))} más "
+        f"al mes** que el motor de agregados. Con esa cifra sobre la mesa, "
+        f"recomendar 'complementar' sin más sería una recomendación cara: el "
+        f"orden aporta información demostrable, pero no la suficiente para "
+        f"pagar por ella en el flujo completo.\n\n"
+        f"Lo que sí se sostiene es un uso **acotado y no bloqueante**: el motor "
+        f"actual sigue decidiendo, y el modelo secuencial marca para *revisión "
+        f"manual* los casos con firma de `f1_golpe`, que es el único mecanismo "
+        f"donde supera a los agregados ({ganancia_f1:+.4f} de AUC-PR). Eso "
+        f"captura la ganancia donde existe sin trasladar su costo al resto del "
+        f"flujo, y sin quitarle al analista la explicabilidad de los agregados.")
+else:
+    titulo_reco = "**complementar, no reemplazar**"
+    cuerpo_reco = (
+        "La ganancia del orden es real pero **estrecha**: aparece en "
+        "`f1_golpe` y no en el resto. La forma concreta es el motor actual como "
+        "primer filtro y el secuencial como segundo, o el máximo de los dos "
+        "puntajes calibrados.")
+
+if k_mejor < k_usado:
+    condicion_k = (
+        f"- **No** ampliar la ventana. Nuestra propia curva de recorte dice que "
+        f"el óptimo está en K={k_mejor} y que K={k_usado} —el que usamos para "
+        f"todo lo demás— rinde peor. Revisaríamos la recomendación si al "
+        f"reentrenar B en K={k_mejor} la comparación económica cambiara de signo; "
+        f"es la primera prueba que correríamos con más tiempo.")
+else:
+    condicion_k = (
+        f"- Si se pudiera ampliar la ventana más allá de K={k_usado} sin costo de "
+        f"latencia, dado que el patrón de brecha larga hoy no cabe en ella.")
+
+
+def frase_impacto(delta: float) -> str:
+    """Un delta negativo es un SOBRECOSTO. Llamarlo 'ahorro' con el signo
+    puesto obliga al lector a decodificarlo y se presta a leerlo al reves."""
+    if delta >= 0:
+        return f"ahorra {q(delta)}"
+    return f"cuesta {q(abs(delta))} MAS"
+
+
+impacto_b = frase_impacto(eco["ahorro_mensual_B"])
+impacto_c = frase_impacto(eco["ahorro_mensual_C"])
+
+_con = R["ablacion_delta_t"]["con"]
+_sin = R["ablacion_delta_t"]["sin"]
+if _sin > _con:
+    texto_ablacion = (
+        f"Quitando el intervalo entre transacciones y reentrenando, la AUC-PR "
+        f"**sube** de {_con:.4f} a {_sin:.4f}. Es lo contrario de lo que "
+        f"esperábamos: suponíamos que Δt era la variable por la que el tiempo "
+        f"entra al modelo, y resulta que en esta configuración le estorba. La "
+        f"lectura honesta es que Δt, tal como lo escalamos, aporta más ruido "
+        f"que señal, y que la dependencia del orden que sí demuestra la "
+        f"permutación vive en la posición de los eventos y no en el hueco "
+        f"temporal entre ellos.")
+else:
+    texto_ablacion = (
+        f"Quitando el intervalo entre transacciones y reentrenando, la AUC-PR "
+        f"cae de {_con:.4f} a {_sin:.4f}: el tiempo entre eventos es parte de "
+        f"cómo el modelo lee la secuencia, no un adorno.")
+
+
 gano_b = b_media > a_media
 hay_evidencia_orden = caida_hist > 0.01
-ganancia_f1 = des_val.get("f1_golpe", {}).get("B_menos_A", 0.0)
 
 if hay_evidencia_orden:
     veredicto_orden = (
@@ -237,6 +306,12 @@ Barajamos el orden de los eventos de cada ventana **sin alterar su
 contenido** y reevaluamos B con **los mismos pesos ya entrenados**, sin
 reentrenar nada.
 
+La prueba corre sobre el modelo de **una** semilla (la 7), cuya AUC-PR es
+{orig:.4f}; por eso esta cifra no coincide con la media de {b_media:.4f} de la
+Tabla 2, que promedia las tres. La dispersión entre semillas es alta
+(σ = {b_sigma:.4f}), y es una limitación que conviene tener presente al leer
+la magnitud de la caída — no su signo, que es inequívoco.
+
 {tabla_permutacion()}
 
 Dos lecturas:
@@ -276,10 +351,7 @@ puntuar una transacción. Trae además un control de sanidad: con `K=1` el
 modelo secuencial no tiene historia que leer y degenera en un clasificador
 puntual.
 
-**Ablación de Δt.** Quitando el intervalo entre transacciones y reentrenando,
-la AUC-PR pasa de {R['ablacion_delta_t']['con']:.4f} a
-{R['ablacion_delta_t']['sin']:.4f}: el tiempo entre eventos es parte de cómo
-el modelo lee la secuencia, no un adorno.
+**Ablación de Δt.** {texto_ablacion}
 
 ---
 
@@ -322,11 +394,12 @@ de {R['n_fraude_test']}) bloqueando **1 de cada
 {R['n_legitimas_test'] // max(fila_mejor['FP'], 1):,} compras legítimas**
 ({fila_mejor['FP']:,} molestias sobre {R['n_legitimas_test']:,} compras buenas).
 
-**Ahorro mensual estimado.** Extrapolando los {eco['dias_test']:.1f} días de
-test a un mes de 30 días ({eco['tx_por_dia']:,.0f} transacciones/día):
+**Impacto mensual estimado.** Extrapolando los {eco['dias_test']:.1f} días de
+test a un mes de 30 días ({eco['tx_por_dia']:,.0f} transacciones/día), y tomando
+el motor de agregados (A) como línea base:
 
-- B contra A: **{q(eco['ahorro_mensual_B'])} / mes**
-- C contra A: **{q(eco['ahorro_mensual_C'])} / mes**
+- B contra A: **{impacto_b}**
+- C contra A: **{impacto_c}**
 
 Es una **extrapolación** y conviene decirlo con todas sus letras: supone que
 el mes se parece al periodo de test en volumen, mezcla de mecanismos y
@@ -341,18 +414,9 @@ umbral teórico de 0.0429 como referencia.
 
 ## Evidencia 6 · Recomendación y límites
 
-### Recomendación: **complementar, no reemplazar**
+### Recomendación: {titulo_reco}
 
-El desglose por mecanismo es la razón. La ganancia del orden es real pero
-**estrecha**: aparece en `f1_golpe` y no en `f2` ni en `f3`, que son la mayor
-parte de los episodios. El motor de agregados sigue siendo más barato de
-operar, más rápido y mucho más explicable ante un cliente al que se le
-bloqueó una compra.
-
-La forma concreta: **el motor actual como primer filtro y el modelo
-secuencial como segundo**, o el máximo de los dos puntajes calibrados. Eso
-captura la ganancia donde existe sin renunciar a la explicabilidad en el
-resto del flujo.
+{cuerpo_reco}
 
 ### Un patrón de error concreto
 
@@ -368,8 +432,7 @@ va rellena de padding.
 - Si la prevalencia de fraude dependiente del orden subiera en el flujo real.
 - Si el costo de un falso negativo dejara de ser uniforme y escalara con el
   monto: eso favorece al modelo que mejor ordena en la cola alta.
-- Si se pudiera ampliar la ventana más allá de 20 eventos sin costo de
-  latencia, dado que el patrón de brecha larga hoy se pierde.
+{condicion_k}
 
 ---
 
@@ -383,7 +446,7 @@ va rellena de padding.
 | Desglose por mecanismo | Tabla 4 | La ganancia se concentra en `f1_golpe` ({ganancia_f1:+.3f}) | Pocos episodios por mecanismo; σ no despreciable |
 | Recorte de historia | Fig. 3 | Mejor AUC-PR en K={k_max['K']} | K>20 no explorado |
 | Apuesta C | — | {'El híbrido superó el umbral declarado' if apu['se_sostuvo'] else 'El híbrido no alcanzó el umbral declarado'} | Una sola configuración de fusión probada |
-| Umbral y costo | Tabla 5, Fig. 4 | u* congelado en validación; ahorro estimado {q(eco['ahorro_mensual_B'])}/mes (B vs A) | Costos fijos y uniformes; datos sintéticos; calibrador y u* ajustados ambos en validación |
+| Umbral y costo | Tabla 5, Fig. 4 | u* congelado en validación; {impacto_b} al mes frente a A | Costos fijos y uniformes; datos sintéticos; calibrador y u* ajustados ambos en validación |
 | Datos | — | Generador reproducible, no amañado a favor de B (f3 sin orden, ráfagas confusoras) | **Sintéticos**: no prueban que el patrón exista en el flujo real |
 """
 

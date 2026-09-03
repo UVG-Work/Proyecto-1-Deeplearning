@@ -60,8 +60,14 @@ for nombre in ("modelo_candidato.keras", "scaler.pkl", "vocab_embeddings.json",
                "config.json", "generador_datos.py"):
     ok((ART / nombre).exists(), f"artefactos/{nombre}")
 
+# El enunciado (5) los nombra planos: informe.pdf y presentacion.pdf. Se
+# publican en la raiz, que es donde el comite los va a buscar, y se conserva
+# la copia de trabajo bajo informe/ junto a las fuentes .md y las figuras.
 for nombre in ("informe.pdf", "presentacion.pdf"):
-    ok((RAIZ / "informe" / nombre).exists(), f"informe/{nombre}")
+    en_raiz = (RAIZ / nombre).exists()
+    en_informe = (RAIZ / "informe" / nombre).exists()
+    ok(en_raiz, nombre, "en la raiz de la entrega" if en_raiz
+       else ("existe en informe/ pero no en la raiz" if en_informe else "no existe"))
 
 ok((RAIZ / "README.md").exists(), "README.md")
 

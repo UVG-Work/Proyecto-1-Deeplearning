@@ -45,6 +45,45 @@ def fila_mec(g: str) -> str:
     return f"| `{g}` | {r['auc_pr_A']:.3f} | {r['auc_pr_B']:.3f} | **{r['B_menos_A']:+.3f}** |"
 
 
+curva = R["curva_k"]
+k_mejor = max(curva, key=lambda f: f["auc_pr"])["K"]
+k_usado = R["K"]
+eco_b = eco["ahorro_mensual_B"]
+impacto_b = (f"ahorra Q{eco_b:,.0f}/mes" if eco_b >= 0
+             else f"**cuesta Q{abs(eco_b):,.0f} MAS al mes**")
+
+if eco_b < 0:
+    reco_titulo = "Conservar el motor actual. Secuencial como sonda acotada."
+    _g1 = des.get("f1_golpe", {}).get("B_menos_A", 0.0)
+    reco_puntos = "\n".join([
+        f"- Desplegar B como decisor **cuesta Q{abs(eco_b):,.0f} más al mes**. "
+        f"El orden aporta información demostrable, pero no alcanza para "
+        f"pagarla en el flujo completo.",
+        f"- La ganancia es **real pero estrecha**: vive en `f1_golpe` "
+        f"({_g1:+.4f} de AUC-PR) y en ningún otro mecanismo.",
+        "- Forma concreta: el motor actual decide; el secuencial **marca para "
+        "revisión manual** los casos con firma de `f1_golpe`. No bloquea.",
+    ])
+else:
+    reco_titulo = "Complementar, no reemplazar."
+    reco_puntos = "\n".join([
+        "- La ganancia del orden es **real pero estrecha**: vive en `f1`.",
+        "- Forma concreta: agregados como primer filtro, secuencial como segundo.",
+    ])
+
+if k_mejor < k_usado:
+    decision_k = (
+        "2. **K={} fue elegido a dedo, y la curva lo desmintió.** El óptimo "
+        "está en K={} (Fig. 3); K={} rinde 0.11 por debajo. Todo el proyecto "
+        "está construido sobre K={}, así que B queda evaluado en su peor "
+        "configuración y el valor del orden sale **subestimado**. Defender "
+        "esta decisión es defender el hallazgo, no la elección."
+    ).format(k_usado, k_mejor, k_usado, k_usado)
+else:
+    decision_k = ("2. **K={} justificado por la curva de recorte** (Fig. 3), "
+                  "no a dedo.").format(k_usado)
+
+
 texto = f"""# Presentación — 8 diapositivas / 8 minutos
 
 > Guion de apoyo. Una diapositiva por bloque; las cifras vienen de
@@ -170,8 +209,8 @@ legítimo. `u*` se barrió sobre validación y se **congeló** antes de test.
 Con {mejor}: detecta **{fila_mejor['recall']:.0%} de los fraudes**, bloqueando
 **{fila_mejor['FP']:,}** compras legítimas de {R['n_legitimas_test']:,}.
 
-Ahorro mensual estimado (extrapolado de {eco['dias_test']:.1f} días):
-**Q{eco['ahorro_mensual_B']:,.0f}/mes** (B vs A).
+Impacto mensual estimado (extrapolado de {eco['dias_test']:.1f} días),
+tomando A como línea base: B {impacto_b}.
 
 ![Costo esperado contra umbral, con u* marcado](figuras/fig5_costo_test.png)
 
@@ -181,14 +220,11 @@ Ahorro mensual estimado (extrapolado de {eco['dias_test']:.1f} días):
 
 ## 8 · Recomendación
 
-### Complementar, no reemplazar.
+### {reco_titulo}
 
-- La ganancia del orden es **real pero estrecha**: vive en `f1`, no en `f2` ni
-  `f3`, que son la mayoría de los episodios.
-- El motor de agregados es más barato, más rápido y **explicable** ante un
-  cliente al que se le bloqueó una compra.
-- Forma concreta: agregados como primer filtro, secuencial como segundo — o el
-  máximo de los dos puntajes calibrados.
+{reco_puntos}
+- El motor de agregados es además más barato, más rápido y **explicable** ante
+  un cliente al que se le bloqueó una compra.
 
 ### Límite honesto
 
@@ -210,8 +246,7 @@ contexto.
    larga que recordar; el Transformer está sobredimensionado; la CNN 1D ve
    patrones locales pero f1 exige **acumular estado** para notar que los montos
    *crecen*.
-2. **K={R['K']}, justificado por la curva de recorte** (Fig. 3), no a dedo. Con
-   K=1 el secuencial degenera en clasificador puntual: control de sanidad.
+{decision_k}
 3. **Ruta A sintética.** Con la permutación como obligación, el riesgo
    dominante era quedarnos sin señal que medir, no la falta de realismo. La
    circularidad se mitiga con f3, con f2 y con las ráfagas confusoras.

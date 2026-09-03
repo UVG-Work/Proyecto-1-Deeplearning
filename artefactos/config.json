@@ -1,0 +1,57 @@
+{
+  "K": 20,
+  "seed_datos": 20260831,
+  "seeds_modelo": [
+    7,
+    13,
+    29
+  ],
+  "modelo_candidato": "B \u2014 GRU",
+  "criterio_de_seleccion": "AUC-PR de validacion (nunca costo en test)",
+  "menor_costo_en_test": "A \u2014 LightGBM",
+  "umbral_u_estrella": {
+    "A": 0.04004004004004004,
+    "B": 0.03203203203203203,
+    "C": 0.03303303303303303,
+    "candidato": 0.03203203203203203
+  },
+  "umbral_teorico": 0.04285714285714286,
+  "costos": {
+    "FN": 4200.0,
+    "FP": 180.0
+  },
+  "batch_size": 2048,
+  "auc_pr_validacion": {
+    "A": 0.8328582732704707,
+    "B": 0.7137847506722514,
+    "C": 0.6938677897199436
+  },
+  "auc_pr_test": {
+    "A \u2014 LightGBM": 0.8498902423859529,
+    "B \u2014 GRU": 0.6223539273991858,
+    "C \u2014 Hibrido": 0.7465955174293734
+  },
+  "costo_test_Q": {
+    "A": 244560.0,
+    "B": 550200.0,
+    "C": 489240.0
+  },
+  "ahorro_mensual_Q": {
+    "B_vs_A": -683479.9533429501,
+    "C_vs_A": -547159.6485537005
+  },
+  "dias_test": 13.415462962962962,
+  "fecha_hipotesis_C": "2026-09-03T01:17:08",
+  "fecha_ejecucion_test": "2026-09-03T01:22:43",
+  "versiones": {
+    "python": "3.14.6",
+    "sistema": "Windows 11",
+    "numpy": "2.3.5",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.8.0",
+    "keras": "3.15.1",
+    "torch": "2.13.0+cpu",
+    "lightgbm": "4.7.0",
+    "keras_backend": "torch"
+  }
+}
