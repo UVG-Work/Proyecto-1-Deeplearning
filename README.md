@@ -16,7 +16,8 @@ La pregunta que responde este proyecto:
 ```bash
 python -m pip install -r requirements.txt
 
-# Suite completa: 129 tests, ~2 min. Incluye el checklist de penalizaciones.
+# Suite completa: 140 tests (133 + 7 que esperan al notebook), ~3 min.
+# Incluye el checklist de penalizaciones como aserciones ejecutables.
 python -m pytest
 
 # Notebook completo, de principio a fin.

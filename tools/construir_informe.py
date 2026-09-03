@@ -223,8 +223,9 @@ La regresión logística está como piso de referencia: sin ella no se sabría s
 el LightGBM es bueno o si el problema es fácil. La diferencia entre ambos
 confirma que la línea base **no** es un hombre de paja.
 
-*(Figura 2: curvas precisión-exhaustividad superpuestas —
-`informe/figuras/fig2_curvas_pr.png`.)*
+![Figura 2 — curvas precisión-exhaustividad de A y B sobre validación](figuras/fig2_curvas_pr.png)
+
+**Figura 2.** Curvas precisión-exhaustividad superpuestas (validación).
 
 ---
 
@@ -265,6 +266,10 @@ forman el patrón. Y B **no** gana donde la teoría dice que no debería.
 ### Figura 3 · ¿Cuánta historia hace falta?
 
 {tabla_k()}
+
+![Figura 3 — AUC-PR de validación en función de K](figuras/fig3_auc_vs_k.png)
+
+**Figura 3.** AUC-PR contra `K`, con la línea de A como referencia.
 
 Responde una pregunta operativa real: cuánta historia hay que guardar para
 puntuar una transacción. Trae además un control de sanidad: con `K=1` el
@@ -327,8 +332,10 @@ Es una **extrapolación** y conviene decirlo con todas sus letras: supone que
 el mes se parece al periodo de test en volumen, mezcla de mecanismos y
 prevalencia, y que los costos son fijos y uniformes para toda transacción.
 
-*(Figura 4: curva Costo(u) para A, B y C con u* marcado —
-`informe/figuras/fig5_costo_test.png`.)*
+![Figura 4 — costo esperado contra umbral de bloqueo, con u* marcado](figuras/fig5_costo_test.png)
+
+**Figura 4.** Costo(u) para A, B y C sobre test, con cada `u*` marcado y el
+umbral teórico de 0.0429 como referencia.
 
 ---
 

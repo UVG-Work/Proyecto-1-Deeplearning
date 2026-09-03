@@ -115,6 +115,8 @@ del enunciado convertido en aserciones.
 {'**B supera a A globalmente.**' if gano_b else '**A gana en AUC-PR global, y lo decimos tal cual.**'}
 {'' if gano_b else 'Treinta agregados causales bien construidos rinden más, sobre el total del flujo, que el modelo secuencial. Ese es el resultado; maquillarlo sería lo único que no valdría nada.'}
 
+![Curvas precisión-exhaustividad de A y B](figuras/fig2_curvas_pr.png)
+
 *Aquí viene el giro: el promedio global esconde dónde está la señal.*
 
 ---
@@ -170,6 +172,8 @@ Con {mejor}: detecta **{fila_mejor['recall']:.0%} de los fraudes**, bloqueando
 
 Ahorro mensual estimado (extrapolado de {eco['dias_test']:.1f} días):
 **Q{eco['ahorro_mensual_B']:,.0f}/mes** (B vs A).
+
+![Costo esperado contra umbral, con u* marcado](figuras/fig5_costo_test.png)
 
 *Decir explícitamente que es una extrapolación con costos fijos y uniformes.*
 
